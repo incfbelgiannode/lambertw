@@ -1,0 +1,214 @@
+/*
+Lambert W package
+@depends 'clifford
+
+**********************************
+ * @license This library is free software	 you can redistribute it and/or
+ *      modify it under the terms of the GNU Lesser General Public
+ *      License as published by the Free Software Foundation	 either
+ *      version 2.1 of the License, or (at your option) any later version.
+ *
+ *      This library is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY	 without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *       Lesser General Public License for more details.
+ *
+ *      You should have received a copy of the GNU Lesser General Public
+ *      License along with this library	 if not, write to the Free Software
+ *      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+load(operpart);
+
+alias(W, lambert_w);
+alias(WW,generalized_lambert_w);
+matchdeclare([%y], all);
+matchdeclare([%yy],   lambda([u], freeof(%e, u) and u#0));
+/**/
+matchdeclare([%a, %b], true);
+defrule(%wexp2, exp(W(%y)), %y/W(%y));
+defrule(%wexp1, exp(-W(%y)), W(%y)/%y);
+defrule(%wexp12, exp(-%a*W(%y)), W(%y)^%a/%y^%a);
+defrule(%wexp11, exp(%b-W(%y)), exp(%b)/%y*W(%y));
+defrule(%wexp1, exp(-W(%y)), W(%y)/%y);
+defrule(%wexp21, exp(%b+W(%y)), exp(%b)*%y/W(%y));
+
+defrule(%wlog1, log(W(%y)), log(%y)-W(%y));
+
+defrule(%olog2, log(omega(%y)), %y-omega(%y));
+
+defrule(%wexp3, W(exp(%y)), omega(%y));
+defrule(%wexp31, W(exp(%y)*%a), omega(%y+log(%a)));
+
+omsubst1(expr):=apply1(expr, %wexp3, %wexp31) ;
+
+/* pattern matchdeing */
+defmatch (logm1, %a+%b*log(%y));
+defmatch (logm2, %b*log(%y));
+
+defmatch (expm1, %a+%b*exp((%y)));
+defmatch (expm2, %b*exp((%y)));
+
+
+defmatch (omlogm1, %b*omega(log(%y) +%y));
+defmatch (omlogm2, %a+%b*omega(log(%y) +%y));
+
+defmatch (wexpm1, %b*W(exp(%y)*%yy));
+defmatch (wexpm2, %a+%b*W(exp(%y)*%yy));
+defmatch (wexpm3, %b*(%a+W(exp(%y)*%yy)));
+
+lamiter(expr, y):=subst(W(y)=exp(-W(y))/y, expr); 
+lamsubst(expr, y):=subst(  y=W(y)*exp(W(y)), expr);
+
+/**
+Omega function
+*/
+gradef(omega(x), omega(x)/(1+omega(x)));
+
+omsubst(expr, y):=subst( omega(y)=WW('k, exp(y)), expr);
+
+
+sgn(x):=block(
+ if atom(x) then 'sgn(x)
+ else if op(x)="-" then -1 else 1
+);
+
+
+
+indefsubst(iexpr, ilim):=block([a,b],
+	[a,b]:ilim,
+	subst(nounify(integrate)= lambda ([u,v], 'integrate(u,v,a,b) ), iexpr)
+);
+
+imrew(wexpr, x):=block([ret, %b, %yy, %y, sol ],
+	if op(wexpr)="=" then
+	ret: rhs(wexpr) else ret:wexpr, display(ret),
+	wexpm1(ret),
+	display( %b, %yy, %y),
+	ret:exp(%y)*%yy=-1/%e,
+	sol: solve(ret, x),
+	[  sol, ret]
+);
+
+
+lamsolve(expr, x):=block([ %a, %b, %y, aa, bb, cc, eq1:x=aa*W(cc)+bb, ret, eq2, sol1:-1, logexpand:all, expr1, l, r],
+	if freeof(x, expr) then return([]),
+	if op(expr)="=" then
+		expr1:rhs(expr)-lhs(expr) else expr1:expr,
+	ret:expand(subst(eq1, expr1)),
+	
+	[l,r]:partbyvar(ret, W),
+	/*display(l,r),*/
+	/* logarithm case */
+	if listp(logm1( r)) then sol1:sol1+1 else if listp(logm2( r)) then sol1:sol1+1 ,
+	if sol1<0 then return(sol1),
+	
+	display(ret, %a, %b, %y),
+	sol1:solve(subst(W(cc)=0, %y), bb),
+	
+	ret:subst(sol1, ret),
+	ret:expand(apply1(ret, %wlog1), 0),
+	eq2:ratcoeff( (ret), W(cc)),
+	/*display(ret, eq2),*/
+	sol1:cons(solve(eq2,aa)[1],sol1),
+	ret:expand(subst(sol1, ret),0),
+	eq2: solve(ret, cc)[1],
+	if emptyp(eq2) then return(eq2),
+	eq2: factor(eq2),
+	sol1:cons(eq2, sol1),
+	eq2:subst(sol1, eq1),
+	[eq2, sol1 ]
+);
+
+lamsolve2(expr, x):=block([ %a, %b, %y, aa, bb, cc, eq1:x=aa*W(cc)+bb, ret, eq2, sol1:-1, logexpand:all, expr1, l, r, n],
+	if freeof(x, expr) then return([]),
+	if op(expr)="=" then
+		expr1:rhs(expr)-lhs(expr) else expr1:expr,
+		n:hipow(expr1,x),
+	ret:expand(subst(eq1, expr1)),
+	
+	[l,r]:partbyvar(ret, W),
+	display(l,r),
+	/* exponential case */
+
+	if listp(expm1( r)) then sol1:sol1+1 else if listp(expm2( r)) then sol1:sol1+1 ,
+	if sol1<0 then return(sol1),
+	
+	display(ret, %a, %b, %y),
+	eq2:ratcoeff( %y, W(cc))=-n,
+	sol1:solve(eq2, aa),
+	display(sol1),
+	eq2:solve(l, bb)[1],
+	sol1:cons(eq2, sol1),
+	ret: (subst(sol1, ret)),
+	ret:expand(apply1(ret, %wexp11, %wexp21, %wexp1, %wexp12), 0),
+	eq2:solve(ret, cc),
+	eq2:sublist(eq2, lambda([u], freeof(W,u) )),
+	display(ret, eq2),
+	if emptyp(eq2) then return(eq2),
+	sol1:cons(eq2[1], sol1),
+	eq2:subst(sol1, eq1),
+	[eq2, sol1]
+);
+
+ 
+omsimp1(expr):=block([ %a, %b, %y, ret:[],    expr1],
+	if mapatom(expr) then return(expr)
+	else 
+	if op(expr)="=" then
+		ret: map (omsimp1, expr) 
+	else (
+		if listp(omlogm2( expr)) then 
+		   ret:%a+%y*%b
+		else (
+			ret:omlogm1( expr),
+			if not listp(ret) then ret:expr else ret:%y*%b
+		)
+	),
+	display(ret, %a, %b, %y),
+	ret
+);
+
+wsimp1(expr):=block([ %a, %b, %y, ret:[],  aa, bb,  expr1],
+if mapatom(expr) then return(expr)
+	else 
+ if op(expr)="=" then
+	ret: map (wsimp1, expr) 
+	else (
+		if  listp(wexpm2( expr)) then 
+			if ratsimp(%y-%yy)=0 then ret:%a+%y*%b else ret:expr
+		elseif  listp(wexpm3( expr)) then 
+			if ratsimp(%y-%yy)=0 then ret:%a*%b+%y*%b else ret:expr
+		else (
+		   ret:wexpm1( expr),	
+			if not listp(ret) then ret:expr else 
+			ret: %y*%b
+		)
+	),
+	display(ret, %a, %b, %y, %yy),
+	ret
+);
+
+wkern(x, g, b):=  1/((x+b)*(W(-exp( (x-g)/g))+1));
+wkern1(x, g, b):=  1/((x+b)*(WW(-1,-exp( (x-g)/g))+1));
+
+
+ilambint1(x, g, a ):=block([ r, u, ret:0, fr:-1, bb ],
+    if not numberp(x) then return('ilambint1(x,g, a)),  
+	if  x>=0 then (
+		bb:g*log(g)-g+a, 
+		if bb>x then
+			ret:fr*first(quad_qagp ( wkern(u, g, bb) , u, 0, x-bb, [x- bb], 'epsrel=1d-8))
+	),
+	ret
+);
+
+ilambint2(x, g, a ):=block([ r, u, ret:0, fr:-1, bb ],
+    if not numberp(x) then return('ilambint2(x,g, a)),  
+	if  x>=0 then (
+		bb:g*log(g)-g+a, 
+		if bb>x then
+			ret:fr*first(quad_qagp ( wkern1(u, g, bb) , u, 0, x-bb, [x- bb], 'epsrel=1d-8))
+	),
+	ret
+);
+ 
