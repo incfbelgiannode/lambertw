@@ -187,28 +187,3 @@ if mapatom(expr) then return(expr)
 	display(ret, %a, %b, %y, %yy),
 	ret
 );
-
-wkern(x, g, b):=  1/((x+b)*(W(-exp( (x-g)/g))+1));
-wkern1(x, g, b):=  1/((x+b)*(WW(-1,-exp( (x-g)/g))+1));
-
-
-ilambint1(x, g, a ):=block([ r, u, ret:0, fr:-1, bb ],
-    if not numberp(x) then return('ilambint1(x,g, a)),  
-	if  x>=0 then (
-		bb:g*log(g)-g+a, 
-		if bb>x then
-			ret:fr*first(quad_qagp ( wkern(u, g, bb) , u, 0, x-bb, [x- bb], 'epsrel=1d-8))
-	),
-	ret
-);
-
-ilambint2(x, g, a ):=block([ r, u, ret:0, fr:-1, bb ],
-    if not numberp(x) then return('ilambint2(x,g, a)),  
-	if  x>=0 then (
-		bb:g*log(g)-g+a, 
-		if bb>x then
-			ret:fr*first(quad_qagp ( wkern1(u, g, bb) , u, 0, x-bb, [x- bb], 'epsrel=1d-8))
-	),
-	ret
-);
- 
